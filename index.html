@@ -464,13 +464,24 @@ function fmtDur(min){const h=Math.floor(min/60),m=min%60;return h?(h+' u'+(m?' '
    service worker het als volledige respons cachet → werkt offline. */
 function FullSource(url){this.url=url;this._buf=null;this._p=null;}
 FullSource.prototype.getKey=function(){return this.url;};
-FullSource.prototype.getBytes=function(offset,length){
+FullSource.prototype._loadAll=function(){
   const self=this;
-  if(!self._buf){
-    if(!self._p) self._p=fetch(self.url).then(r=>{if(!r.ok)throw new Error('pmtiles '+r.status);return r.arrayBuffer();}).then(b=>{self._buf=b;return b;});
-    return self._p.then(b=>({data:b.slice(offset,offset+length)}));
-  }
-  return Promise.resolve({data:self._buf.slice(offset,offset+length)});
+  if(self._p) return self._p;
+  self._p=(async()=>{
+    let res=null;
+    try{ // cache-first in eigen kaart-cache → werkt offline, ongeacht SW-timing
+      const cache=await caches.open('reisgids-maps');
+      res=await cache.match(self.url);
+      if(!res){ res=await fetch(self.url,{cache:'no-store'}); if(res&&res.ok){try{await cache.put(self.url,res.clone());}catch(_){}} }
+    }catch(_){ res=null; }
+    if(!res||!res.ok) res=await fetch(self.url); // laatste redmiddel
+    const buf=await res.arrayBuffer(); self._buf=buf; return buf;
+  })();
+  return self._p;
+};
+FullSource.prototype.getBytes=function(offset,length){
+  if(this._buf) return Promise.resolve({data:this._buf.slice(offset,offset+length)});
+  return this._loadAll().then(b=>({data:b.slice(offset,offset+length)}));
 };
 let _glLibP=null, _dayMap=null;
 function ensureGL(){
