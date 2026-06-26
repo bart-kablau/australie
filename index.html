@@ -225,6 +225,21 @@ button{font-family:inherit}
 .glpin.to .pin{background:var(--red)}
 .glpin .lbl{font-family:var(--mono);font-size:9.5px;font-weight:600;color:var(--ink);background:rgba(251,246,234,.92);border-radius:5px;padding:2px 6px;margin-top:3px;white-space:nowrap;box-shadow:var(--sh-sm);max-width:120px;overflow:hidden;text-overflow:ellipsis}
 @media (prefers-reduced-motion:reduce){.glmap-load .sp{animation:none}}
+/* MapLibre popup in zeekaart-stijl */
+.maplibregl-popup{max-width:264px!important}
+.maplibregl-popup-content{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:var(--sh-lg);padding:13px 15px 14px;font-family:var(--sans);color:var(--ink)}
+.maplibregl-popup-content h4{font-family:var(--disp);font-weight:600;font-size:16.5px;margin:0 0 3px;letter-spacing:-.01em}
+.maplibregl-popup-content .mt{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:7px}
+.maplibregl-popup-content p{font-size:12.5px;margin:0 0 9px;color:var(--ink)}
+.maplibregl-popup-close-button{font-size:19px;color:var(--ink-soft);padding:1px 7px;line-height:1.2}
+.maplibregl-popup-close-button:hover{background:none;color:var(--ink)}
+.maplibregl-popup-anchor-top .maplibregl-popup-tip{border-bottom-color:var(--paper)}
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip{border-top-color:var(--paper)}
+.maplibregl-popup-anchor-left .maplibregl-popup-tip{border-right-color:var(--paper)}
+.maplibregl-popup-anchor-right .maplibregl-popup-tip{border-left-color:var(--paper)}
+.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,.maplibregl-popup-anchor-top-right .maplibregl-popup-tip{border-bottom-color:var(--paper)}
+.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip{border-top-color:var(--paper)}
+.mapbox .maptop{z-index:3}.mapbox .glmap-load{z-index:4}
 
 /* ---- maps waypoint checklist ---- */
 .mapsel{margin:13px 0 0}
@@ -1023,169 +1038,78 @@ function renderPraktisch(){
 
 /* ---------- KAART ---------- */
 const MapView=(function(){
-  let svg,vb,box,pop,dyn={markers:[],sights:[],labels:[]},inited=false,bounds;
-  const lat0=-24, k=100, coslat=Math.cos(lat0*Math.PI/180);
-  function proj(lon,lat){return [ (lon)*k*coslat, (-lat)*k ];}
+  let map=null, box=null, pop=null, built=false;
+  const diveStops={reef:1,magnetic:1,palmcove:1};
+  function nightsOf(s){return (s.boeking?s.boeking.reduce((a,b)=>a+(b.nachten||0),0):1)||1;}
+  function statusOf(s){const cur=currentDayNum();if(!cur)return'up';const last=s.dagen[s.dagen.length-1];if(last<cur)return'past';if(s.dagen.includes(cur))return'now';return'up';}
+  function fullRouteCoords(){
+    const out=[];for(let d=1;d<=32;d++){const rt=DATA.routes&&DATA.routes[d];if(rt&&rt.coords&&rt.coords.length)rt.coords.forEach(c=>out.push(c));}
+    return out.length>1?out:DATA.stopsOrder.map(k=>{const c=DATA.stops[k].coord;return [c.lon,c.lat];});
+  }
+  function stopFC(){return {type:'FeatureCollection',features:DATA.stopsOrder.map(k=>{const s=DATA.stops[k];return {type:'Feature',geometry:{type:'Point',coordinates:[s.coord.lon,s.coord.lat]},properties:{key:k,lbl:s.naamKort.replace(/\s*\(.*\)/,''),status:statusOf(s),nights:nightsOf(s),dive:diveStops[k]?1:0}};})};}
+  function sightFC(){const fs=[];DATA.stopsOrder.forEach(k=>{const s=DATA.stops[k];(s.bezienswaardigheden||[]).forEach((b,bi)=>{if(b.coord&&b.coord.lat!=null)fs.push({type:'Feature',geometry:{type:'Point',coordinates:[b.coord.lon,b.coord.lat]},properties:{key:k,bi:bi,must:b.mustSee?1:0}});});});return {type:'FeatureCollection',features:fs};}
+  function allBounds(){const b=new maplibregl.LngLatBounds();DATA.stopsOrder.forEach(k=>{const c=DATA.stops[k].coord;b.extend([c.lon,c.lat]);});return b;}
   function build(){
     const v=views.kaart;v.innerHTML='';
     const head=el('div','pad');
-    head.innerHTML='<h2 class="h2"><span class="num">🗺️</span>De kaart</h2><p class="sub">De hele route Sydney → Cairns. Tik een stop voor details; zoom in om alle bezienswaardigheden te zien.</p>';
+    head.innerHTML='<h2 class="h2"><span class="num">🗺️</span>De kaart</h2><p class="sub">De hele route Sydney → Cairns op de echte kaart. Tik een stop voor details; zoom in voor alle bezienswaardigheden.</p>';
     v.appendChild(head);
     box=el('div','mapbox');
-    box.innerHTML='<svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>'+
-      '<div class="maptop"><button id="mNow">📍 Waar zijn we?</button><button id="mFit">⤢ Hele route</button></div>'+
-      '<div class="mapctl"><button id="mIn">+</button><button id="mOut">−</button></div>'+
-      '<div class="mappop" id="mPop"></div>';
+    const mapDiv=el('div');mapDiv.style.cssText='position:absolute;inset:0';
+    box.appendChild(mapDiv);
+    box.insertAdjacentHTML('beforeend','<div class="maptop"><button id="mNow" type="button">📍 Waar zijn we?</button><button id="mFit" type="button">⤢ Hele route</button></div><div class="glmap-load"><span class="sp"></span>Kaart laden…</div>');
     v.appendChild(box);
     v.appendChild(el('div','mhint','Sleep om te verschuiven · scroll of knijp om te zoomen'));
-    // ribbon timeline
     const rb=el('div','pad section');
     rb.innerHTML='<p class="eyebrow" style="margin-bottom:8px">Chronologische tijdlijn — breedte = aantal nachten</p>';
     rb.appendChild(buildRibbon(false));
     v.appendChild(rb);
-    svg=qs('#map',v);pop=qs('#mPop',v);
-    drawStatic();
-    fit();
-    wire();
-    inited=true;
+    built=true;
+    ensureGL().then(()=>init(mapDiv)).catch(()=>{const l=box.querySelector('.glmap-load');if(l)l.innerHTML='Kaart kon niet laden — check je verbinding.';});
   }
-  function drawStatic(){
-    // land
-    let paths='';
-    COAST.forEach(ring=>{
-      let dd='M';ring.forEach((p,i)=>{const xy=proj(p[0],p[1]);dd+=(i?'L':'')+xy[0].toFixed(1)+' '+xy[1].toFixed(1);});
-      dd+='Z';paths+='<path d="'+dd+'" fill="#e8ddc2" stroke="#cdbb95" stroke-width="0.6" vector-effect="non-scaling-stroke"/>';
-    });
-    // route polyline
-    const pts=DATA.stopsOrder.map(k=>{const c=DATA.stops[k].coord;return proj(c.lon,c.lat);});
-    let rl='<polyline points="'+pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'" fill="none" stroke="#117C8B" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke" stroke-linejoin="round" opacity="0.85"/>';
-    svg.innerHTML='<g id="gLand">'+paths+'</g><g id="gRoute">'+rl+'</g><g id="gSights"></g><g id="gMarks"></g><g id="gLabels"></g>';
-    // bounds from stops
-    let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
-    pts.forEach(p=>{minx=Math.min(minx,p[0]);maxx=Math.max(maxx,p[0]);miny=Math.min(miny,p[1]);maxy=Math.max(maxy,p[1]);});
-    bounds={minx,miny,maxx,maxy};
+  function init(mapDiv){
+    map=new maplibregl.Map({container:mapDiv,style:glStyle(),attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false,maxZoom:14,fitBoundsOptions:{padding:40}});
+    map.touchZoomRotate.disableRotation();
+    map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
+    pop=new maplibregl.Popup({closeButton:true,closeOnClick:true,maxWidth:'264px',offset:14});
+    map.fitBounds(allBounds(),{padding:{top:50,bottom:50,left:36,right:36},duration:0});
+    map.on('load',()=>{addLayers();const l=box.querySelector('.glmap-load');if(l)l.remove();});
+    map.on('error',()=>{});
+    qs('#mFit',box).onclick=()=>{if(pop)pop.remove();map.fitBounds(allBounds(),{padding:{top:50,bottom:50,left:36,right:36},duration:700});};
+    qs('#mNow',box).onclick=()=>{const cur=currentDayNum();let key='sydney';if(cur){const d=DATA.days[cur-1];if(d.stopKey)key=d.stopKey;}const c=DATA.stops[key].coord;map.flyTo({center:[c.lon,c.lat],zoom:9,duration:900});};
   }
-  function fit(){
-    const padx=(bounds.maxx-bounds.minx)*0.18+30, pady=(bounds.maxy-bounds.miny)*0.10+30;
-    vb={x:bounds.minx-padx,y:bounds.miny-pady,w:(bounds.maxx-bounds.minx)+padx*2,h:(bounds.maxy-bounds.miny)+pady*2};
-    apply();
+  function addLayers(){
+    map.addSource('route',{type:'geojson',data:lineFC(fullRouteCoords())});
+    map.addLayer({id:'route-cas',type:'line',source:'route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fbf7ee','line-width':['interpolate',['linear'],['zoom'],5,4,11,8],'line-opacity':0.7}});
+    map.addLayer({id:'route',type:'line',source:'route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#0E7C8B','line-width':['interpolate',['linear'],['zoom'],5,2.2,11,4.5]}});
+    // bezienswaardigheden (alleen bij inzoomen)
+    map.addSource('sights',{type:'geojson',data:sightFC()});
+    map.addLayer({id:'sights',type:'circle',source:'sights',minzoom:7.5,paint:{'circle-radius':['interpolate',['linear'],['zoom'],7.5,3,12,6],'circle-color':['case',['==',['get','must'],1],'#E8463A','#CBB58F'],'circle-stroke-color':'#fbf7ee','circle-stroke-width':1.4,'circle-opacity':0.95}});
+    // stops
+    map.addSource('stops',{type:'geojson',data:stopFC()});
+    map.addLayer({id:'stop-dots',type:'circle',source:'stops',paint:{'circle-radius':['interpolate',['linear'],['get','nights'],1,6,4,9],'circle-color':['match',['get','status'],'past','#9bb0b6','now','#E8463A','#0E7C8B'],'circle-stroke-color':'#fbf7ee','circle-stroke-width':2.5}});
+    map.addLayer({id:'stop-dive',type:'circle',source:'stops',filter:['==',['get','dive'],1],paint:{'circle-radius':['interpolate',['linear'],['get','nights'],1,2.4,4,3.4],'circle-color':'#fbf7ee'}});
+    map.addLayer({id:'stop-lbl',type:'symbol',source:'stops',layout:{'text-field':['get','lbl'],'text-font':['Noto Sans Medium'],'text-size':['interpolate',['linear'],['zoom'],5,11,10,14],'text-offset':[0,1.1],'text-anchor':'top','text-max-width':9,'text-allow-overlap':false,'text-optional':true},paint:{'text-color':'#0a2530','text-halo-color':'#fbf6ea','text-halo-width':1.8}});
+    // interactie
+    const cur='pointer';
+    ['stop-dots','sights'].forEach(id=>{map.on('mouseenter',id,()=>map.getCanvas().style.cursor=cur);map.on('mouseleave',id,()=>map.getCanvas().style.cursor='');});
+    map.on('click','stop-dots',e=>{const f=e.features[0];stopPop(f.properties.key,e.lngLat);});
+    map.on('click','sights',e=>{const f=e.features[0];sightPop(f.properties.key,+f.properties.bi,e.lngLat);});
   }
-  function apply(){
-    // keep aspect ratio of the svg box
-    const r=box.getBoundingClientRect();const ar=r.width/r.height;
-    if(vb.w/vb.h>ar){vb.h=vb.w/ar;}else{vb.w=vb.h*ar;}
-    svg.setAttribute('viewBox',vb.x+' '+vb.y+' '+vb.w+' '+vb.h);
-    drawDynamic();
+  function stopPop(key,lngLat){
+    const s=DATA.stops[key];const n=nightsOf(s);
+    const div=el('div');
+    div.innerHTML='<h4>'+esc(s.naamKort)+'</h4><div class="mt">'+n+' '+(n===1?'nacht':'nachten')+' · '+esc(s.regio||'')+'</div><p>'+esc((s.overDezePlek||'').slice(0,135))+'…</p><button class="btn teal sm" type="button">Naar dag '+s.dagen[0]+' →</button>';
+    div.querySelector('button').onclick=()=>{pop.remove();go('dagen',s.dagen[0]);};
+    pop.setLngLat(lngLat).setDOMContent(div).addTo(map);
   }
-  function curScale(){const r=box.getBoundingClientRect();return r.width/vb.w;} // px per user-unit
-  function drawDynamic(){
-    const sc=curScale();
-    const R=(px)=>px/sc; // user units for px
-    const gM=qs('#gMarks',svg),gL=qs('#gLabels',svg),gS=qs('#gSights',svg);
-    const cur=currentDayNum();
-    // markers
-    let m='',lab='';
-    DATA.stopsOrder.forEach((key,i)=>{
-      const s=DATA.stops[key];const c=proj(s.coord.lon,s.coord.lat);
-      const nights=(s.boeking?s.boeking.reduce((a,b)=>a+(b.nachten||0),0):1)||1;
-      const rad=R(6+Math.min(nights,4)*1.8);
-      // status
-      let col='#117C8B';// upcoming
-      if(cur){const last=s.dagen[s.dagen.length-1];if(last<cur)col='#9bb0b6';else if(s.dagen.includes(cur))col='#E23A2E';}
-      const isDive=(key==='reef'||key==='magnetic'||key==='palmcove');
-      m+='<g class="mk" data-key="'+key+'" style="cursor:pointer"><circle cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" r="'+rad.toFixed(2)+'" fill="'+col+'" stroke="#fbf7ee" stroke-width="'+R(2).toFixed(2)+'"/>'+
-        (isDive?'<circle cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" r="'+(rad*0.42).toFixed(2)+'" fill="#fbf7ee"/>':'')+'</g>';
-      lab+='<text x="'+(c[0]+rad+R(4)).toFixed(1)+'" y="'+(c[1]+R(4)).toFixed(1)+'" font-family="ui-monospace,monospace" font-size="'+R(12).toFixed(1)+'" fill="#0C2A38" stroke="#fbf7ee" stroke-width="'+R(3).toFixed(2)+'" paint-order="stroke" style="font-weight:600">'+esc(s.naamKort.split(' ')[0])+'</text>';
-    });
-    gM.innerHTML=m;gL.innerHTML=lab;
-    // sight pins (level of detail): show when zoomed in
-    const showSights=vb.w< (bounds.maxx-bounds.minx)*0.55;
-    let sp='';
-    if(showSights){
-      DATA.stopsOrder.forEach(key=>{
-        const s=DATA.stops[key];
-        (s.bezienswaardigheden||[]).forEach((b,bi)=>{
-          if(!b.coord||b.coord.lat==null)return;
-          const c=proj(b.coord.lon,b.coord.lat);
-          const rr=R(3.4);
-          sp+='<g class="sp" data-key="'+key+'" data-bi="'+bi+'" style="cursor:pointer"><circle cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" r="'+rr.toFixed(2)+'" fill="'+(b.mustSee?'#E23A2E':'#CBB58F')+'" stroke="#fbf7ee" stroke-width="'+R(1.3).toFixed(2)+'" opacity="0.92"/></g>';
-        });
-      });
-    }
-    gS.innerHTML=sp;
+  function sightPop(key,bi,lngLat){
+    const s=DATA.stops[key];const b=s.bezienswaardigheden[bi];
+    const div=el('div');
+    div.innerHTML='<h4>'+esc(b.naam)+'</h4><div class="mt">'+esc(s.naamKort)+(b.afstandMin!=null?' · 🚗 '+b.afstandMin+' min':'')+'</div><p>'+esc((b.beschrijving||'').slice(0,150))+'</p>'+(b.mapsLink?'<a class="maplink" target="_blank" rel="noopener" href="'+esc(b.mapsLink)+'">📍 Open in Maps</a>':'');
+    pop.setLngLat(lngLat).setDOMContent(div).addTo(map);
   }
-  function showPop(key,bi,ev){
-    const s=DATA.stops[key];let html='';
-    if(bi==null){
-      const nights=(s.boeking?s.boeking.reduce((a,b)=>a+(b.nachten||0),0):1)||1;
-      html='<span class="x">×</span><h4>'+esc(s.naamKort)+'</h4><div class="mt">'+nights+' '+(nights===1?'nacht':'nachten')+' · '+esc(s.regio)+'</div>'+
-        '<div style="font-size:12.5px;margin-bottom:9px">'+esc((s.overDezePlek||'').slice(0,130))+'…</div>'+
-        '<button class="btn teal sm" data-dag="'+s.dagen[0]+'">Naar dag '+s.dagen[0]+' →</button>';
-    } else {
-      const b=s.bezienswaardigheden[bi];
-      html='<span class="x">×</span><h4>'+esc(b.naam)+'</h4><div class="mt">'+esc(s.naamKort)+(b.afstandMin!=null?' · 🚗 '+b.afstandMin+' min':'')+'</div>'+
-        '<div style="font-size:12.5px;margin-bottom:9px">'+esc((b.beschrijving||'').slice(0,140))+'</div>'+
-        '<a class="maplink" target="_blank" rel="noopener" href="'+esc(b.mapsLink)+'">📍 Maps</a>';
-    }
-    pop.innerHTML=html;pop.style.display='block';
-    // position near pointer
-    const r=box.getBoundingClientRect();
-    let px=(ev.clientX-r.left),py=(ev.clientY-r.top);
-    px=Math.min(px,r.width-250);py=Math.min(py,r.height-150);
-    pop.style.left=Math.max(8,px)+'px';pop.style.top=Math.max(8,py)+'px';
-    pop.querySelector('.x').onclick=()=>pop.style.display='none';
-    const nb=pop.querySelector('[data-dag]');if(nb)nb.onclick=()=>{pop.style.display='none';go('dagen',+nb.dataset.dag);};
-  }
-  function wire(){
-    let pts={},start=null,moved=false,pinchD=null;
-    function c2u(cx,cy){const r=box.getBoundingClientRect();return [vb.x+(cx-r.left)/r.width*vb.w, vb.y+(cy-r.top)/r.height*vb.h];}
-    svg.addEventListener('pointerdown',e=>{
-      pts[e.pointerId]={x:e.clientX,y:e.clientY};
-      try{svg.setPointerCapture(e.pointerId);}catch(_){}
-      if(Object.keys(pts).length===1){start={x:e.clientX,y:e.clientY,vx:vb.x,vy:vb.y};moved=false;pop.style.display='none';}
-    });
-    svg.addEventListener('pointermove',e=>{
-      if(!pts[e.pointerId])return;
-      pts[e.pointerId]={x:e.clientX,y:e.clientY};
-      const ids=Object.keys(pts);
-      if(ids.length>=2){
-        const a=pts[ids[0]],b=pts[ids[1]];const dist=Math.hypot(a.x-b.x,a.y-b.y);
-        const mid=c2u((a.x+b.x)/2,(a.y+b.y)/2);
-        if(pinchD)zoomAt(mid[0],mid[1],pinchD/dist);
-        pinchD=dist;moved=true;return;
-      }
-      if(start){const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.abs(dx)+Math.abs(dy)>4)moved=true;
-        const r=box.getBoundingClientRect();vb.x=start.vx-dx/r.width*vb.w;vb.y=start.vy-dy/r.height*vb.h;
-        svg.setAttribute('viewBox',vb.x+' '+vb.y+' '+vb.w+' '+vb.h);}
-    });
-    function end(e){
-      const cx=e.clientX,cy=e.clientY,wasMoved=moved;
-      delete pts[e.pointerId];
-      if(Object.keys(pts).length<2)pinchD=null;
-      if(Object.keys(pts).length===0){start=null;if(!wasMoved)tap(cx,cy);}
-    }
-    svg.addEventListener('pointerup',end);
-    svg.addEventListener('pointercancel',e=>{delete pts[e.pointerId];start=null;pinchD=null;});
-    svg.addEventListener('wheel',e=>{e.preventDefault();const f=e.deltaY>0?1.15:0.85;const u=c2u(e.clientX,e.clientY);zoomAt(u[0],u[1],f);},{passive:false});
-    function tap(cx,cy){
-      const t=document.elementFromPoint(cx,cy);if(!t||!t.closest)return;
-      const mk=t.closest('.mk'),sp=t.closest('.sp');
-      if(mk)showPop(mk.dataset.key,null,{clientX:cx,clientY:cy});
-      else if(sp)showPop(sp.dataset.key,+sp.dataset.bi,{clientX:cx,clientY:cy});
-    }
-    qs('#mIn',box).onclick=()=>zoomAt(vb.x+vb.w/2,vb.y+vb.h/2,0.7);
-    qs('#mOut',box).onclick=()=>zoomAt(vb.x+vb.w/2,vb.y+vb.h/2,1.4);
-    qs('#mFit',box).onclick=()=>{pop.style.display='none';fit();};
-    qs('#mNow',box).onclick=()=>{const cur=currentDayNum();let key='sydney';if(cur){const d=DATA.days[cur-1];if(d.stopKey)key=d.stopKey;}centerStop(key);};
-  }
-  function zoomAt(ux,uy,f){
-    const nw=Math.max((bounds.maxx-bounds.minx)*0.04,Math.min((bounds.maxx-bounds.minx)*1.8,vb.w*f));
-    const nh=nw*(vb.h/vb.w);
-    vb.x=ux-(ux-vb.x)*(nw/vb.w);vb.y=uy-(uy-vb.y)*(nh/vb.h);vb.w=nw;vb.h=nh;
-    svg.setAttribute('viewBox',vb.x+' '+vb.y+' '+vb.w+' '+vb.h);drawDynamic();
-  }
-  function centerStop(key){const s=DATA.stops[key];const c=proj(s.coord.lon,s.coord.lat);const w=(bounds.maxx-bounds.minx)*0.32;const h=w*(vb.h/vb.w);vb={x:c[0]-w/2,y:c[1]-h/2,w,h};apply();}
-  return {ensure(){if(!inited)build();else apply();}};
+  return {ensure(){if(!built){build();}else if(map){requestAnimationFrame(()=>{try{map.resize();}catch(_){}});}}};
 })();
 
 /* ============ navigation ============ */
