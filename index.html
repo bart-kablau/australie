@@ -656,11 +656,7 @@ function renderDay(d){
     if(stop.bezienswaardigheden&&stop.bezienswaardigheden.length){
       const sh=el('div','section');
       sh.innerHTML='<h2 class="h2"><span class="num">'+stop.bezienswaardigheden.length+'</span>Bezienswaardigheden</h2><p class="sub">Afstand = rijtijd vanaf je verblijf. ⭐ = echte aanrader.</p>';
-      const grid=el('div','sights');
-      stop.bezienswaardigheden.slice().sort((a,b)=>(b.mustSee-a.mustSee)).forEach(s=>{
-        grid.appendChild(sightCard(s));
-      });
-      sh.appendChild(grid);wrap.appendChild(sh);
+      const sorted=stop.bezienswaardigheden.slice().sort((a,b)=>(b.mustSee-a.mustSee));const grid=el('div','sights');var SHOW=3;sorted.slice(0,SHOW).forEach(function(s){grid.appendChild(sightCard(s));});sh.appendChild(grid);if(sorted.length>SHOW){var tb=el('button','btn ghost sm');tb.style.cssText='margin:16px auto 0;display:flex;width:fit-content';var more=el('div','sights');more.style.cssText='display:none;margin-top:12px';sorted.slice(SHOW).forEach(function(s){more.appendChild(sightCard(s));});var setlbl=function(){tb.textContent=(more.style.display==='none'?('Toon alle '+sorted.length+' bezienswaardigheden ↓'):'Minder tonen ↑');};tb.onclick=function(){more.style.display=(more.style.display==='none'?'grid':'none');setlbl();};setlbl();sh.appendChild(tb);sh.appendChild(more);}wrap.appendChild(sh);
     }
   }
   body.appendChild(wrap);
