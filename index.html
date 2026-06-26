@@ -210,6 +210,22 @@ button{font-family:inherit}
 .legcap{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-bottom:8px}
 .legcap b{color:var(--ink)}
 
+/* ---- MapLibre route map (echte kaart, offline pmtiles) ---- */
+.glmap{position:relative;width:100%;height:250px;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;margin:4px 0 2px;box-shadow:var(--sh-sm);background:linear-gradient(180deg,#dbe9e7,#eef5f2)}
+.glmap .maplibregl-ctrl-group{background:rgba(251,246,234,.94);border:1px solid var(--line);box-shadow:var(--sh-sm)}
+.glmap .maplibregl-ctrl-group button+button{border-top:1px solid var(--line)}
+.glmap .maplibregl-ctrl-attrib{font-size:9px;background:rgba(251,246,234,.7)}
+.glmap-load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);z-index:2;background:linear-gradient(180deg,#dbe9e7,#eef5f2)}
+.glmap-load .sp{width:15px;height:15px;border:2px solid var(--line);border-top-color:var(--teal);border-radius:50%;margin-right:9px;animation:glspin .8s linear infinite}
+@keyframes glspin{to{transform:rotate(360deg)}}
+.glstop{transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#5f8b93;border:2px solid #fbf7ee;box-shadow:0 1px 3px rgba(5,32,43,.4);cursor:default}
+.glpin{display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);cursor:default}
+.glpin .pin{width:16px;height:16px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fbf7ee;box-shadow:0 2px 5px rgba(5,32,43,.45)}
+.glpin.from .pin{background:#1f9d57}
+.glpin.to .pin{background:var(--red)}
+.glpin .lbl{font-family:var(--mono);font-size:9.5px;font-weight:600;color:var(--ink);background:rgba(251,246,234,.92);border-radius:5px;padding:2px 6px;margin-top:3px;white-space:nowrap;box-shadow:var(--sh-sm);max-width:120px;overflow:hidden;text-overflow:ellipsis}
+@media (prefers-reduced-motion:reduce){.glmap-load .sp{animation:none}}
+
 /* ---- maps waypoint checklist ---- */
 .mapsel{margin:13px 0 0}
 .mapsel .mh{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:4px}
@@ -443,6 +459,103 @@ function legMap(dag, leg){
 }
 function fmtDur(min){const h=Math.floor(min/60),m=min%60;return h?(h+' u'+(m?' '+m+'m':'')):(m+' min');}
 
+/* ============ MapLibre route maps (echte kaart, offline via pmtiles) ============ */
+/* eigen bron: haalt het hele .pmtiles één keer op (geen Range-header) zodat de
+   service worker het als volledige respons cachet → werkt offline. */
+function FullSource(url){this.url=url;this._buf=null;this._p=null;}
+FullSource.prototype.getKey=function(){return this.url;};
+FullSource.prototype.getBytes=function(offset,length){
+  const self=this;
+  if(!self._buf){
+    if(!self._p) self._p=fetch(self.url).then(r=>{if(!r.ok)throw new Error('pmtiles '+r.status);return r.arrayBuffer();}).then(b=>{self._buf=b;return b;});
+    return self._p.then(b=>({data:b.slice(offset,offset+length)}));
+  }
+  return Promise.resolve({data:self._buf.slice(offset,offset+length)});
+};
+let _glLibP=null, _dayMap=null;
+function ensureGL(){
+  if(_glLibP) return _glLibP;
+  const load=src=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('load '+src));document.head.appendChild(s);});
+  const css=document.createElement('link');css.rel='stylesheet';css.href='lib/maplibre-gl.css';document.head.appendChild(css);
+  _glLibP=load('lib/pmtiles.js').then(()=>load('lib/maplibre-gl.js')).then(()=>{
+    const proto=new pmtiles.Protocol();
+    maplibregl.addProtocol('pmtiles',proto.tile);
+    const key=new URL('tiles/oostkust-z12.pmtiles',location.href).href;
+    proto.add(new pmtiles.PMTiles(new FullSource(key)));
+    window._pmKey=key;
+  });
+  return _glLibP;
+}
+function glStyle(){
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+  return {version:8,
+    glyphs:base+'font/glyphs/{fontstack}/{range}.pbf',
+    sources:{pm:{type:'vector',url:'pmtiles://'+window._pmKey,attribution:'© OpenStreetMap · Protomaps'}},
+    layers:[
+      {id:'sea',type:'background',paint:{'background-color':'#d6e7e4'}},
+      {id:'earth',type:'fill',source:'pm','source-layer':'earth',paint:{'fill-color':'#ece2c6'}},
+      {id:'landcover',type:'fill',source:'pm','source-layer':'landcover',paint:{'fill-color':['match',['get','kind'],'forest','#d4e1bd','wood','#d4e1bd','grassland','#e0e7c5','scrub','#dde3c1','#e6e1c8'],'fill-opacity':0.55}},
+      {id:'landuse',type:'fill',source:'pm','source-layer':'landuse',paint:{'fill-color':['match',['get','kind'],'park','#d0e5c4','national_park','#cfe6c1','recreation_ground','#d3e6c6','forest','#d4e1bd','#e9e2cc'],'fill-opacity':0.5}},
+      {id:'water',type:'fill',source:'pm','source-layer':'water',paint:{'fill-color':'#bcdfe2'}},
+      {id:'rd-cas',type:'line',source:'pm','source-layer':'roads',filter:['match',['get','kind'],['highway','major_road'],true,false],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#dcc79b','line-width':['interpolate',['linear'],['zoom'],6,1.4,12,7]}},
+      {id:'rd',type:'line',source:'pm','source-layer':'roads',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['match',['get','kind'],'highway','#fdf7ea','major_road','#faf2dd',['medium_road','minor_road'],'#f3ecd8','#efe7d3'],'line-width':['interpolate',['linear'],['zoom'],6,0.5,12,['match',['get','kind'],'highway',5,'major_road',3,1.3]]}},
+      {id:'bound',type:'line',source:'pm','source-layer':'boundaries',filter:['match',['get','kind'],['country','region'],true,false],paint:{'line-color':'#b0a081','line-dasharray':[3,2],'line-width':['interpolate',['linear'],['zoom'],5,0.6,10,1.4],'line-opacity':0.7}},
+      {id:'pl-town',type:'symbol',source:'pm','source-layer':'places',filter:['match',['get','kind'],['locality','city','town','village'],true,false],layout:{'text-field':['coalesce',['get','name:nl'],['get','name:en'],['get','name']],'text-font':['Noto Sans Medium'],'text-size':['interpolate',['linear'],['zoom'],6,10.5,9,12.5,12,15.5],'text-max-width':8,'text-padding':3},paint:{'text-color':'#0a2530','text-halo-color':'#fbf6ea','text-halo-width':1.7,'text-halo-blur':0.4}},
+      {id:'wt-name',type:'symbol',source:'pm','source-layer':'water',filter:['has','name'],layout:{'text-field':['coalesce',['get','name:nl'],['get','name']],'text-font':['Noto Sans Regular'],'text-size':11,'text-max-width':7},paint:{'text-color':'#3a8a93','text-halo-color':'#d8e8e6','text-halo-width':1.2}}
+    ]};
+}
+const lineFC=coords=>({type:'Feature',geometry:{type:'LineString',coordinates:coords}});
+function addRouteLayers(map,dag,leg){
+  // hele route (gedimd) uit stop-coördinaten
+  const full=DATA.stopsOrder.map(k=>{const c=DATA.stops[k].coord;return [c.lon,c.lat];});
+  map.addSource('full',{type:'geojson',data:lineFC(full)});
+  map.addLayer({id:'full',type:'line',source:'full',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#7e969d','line-width':2.5,'line-dasharray':[2,2.2],'line-opacity':0.75}});
+  // huidige rit (gekleurd) — gedetailleerde OSRM-geometrie indien aanwezig
+  const rt=DATA.routes&&DATA.routes[dag];
+  let legCoords=(rt&&rt.coords&&rt.coords.length>1)?rt.coords.slice():null;
+  if(!legCoords){const a=leg.vanCoord,b=leg.naarCoord;if(a&&b&&a.lon!=null&&b.lon!=null)legCoords=[[a.lon,a.lat],[b.lon,b.lat]];}
+  if(legCoords&&legCoords.length>1){
+    map.addSource('leg',{type:'geojson',data:lineFC(legCoords)});
+    map.addLayer({id:'legcas',type:'line',source:'leg',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':7,'line-opacity':0.95}});
+    map.addLayer({id:'legln',type:'line',source:'leg',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#E8463A','line-width':4}});
+  }
+  // kleine stip per stop
+  DATA.stopsOrder.forEach(k=>{const c=DATA.stops[k].coord;const e=el('div','glstop');new maplibregl.Marker({element:e}).setLngLat([c.lon,c.lat]).addTo(map);});
+  // from/to pinnen
+  const pin=(coord,cls,label)=>{if(!coord||coord.lon==null)return;const e=el('div','glpin '+cls);e.innerHTML='<div class="pin"></div><div class="lbl">'+esc(label)+'</div>';new maplibregl.Marker({element:e}).setLngLat([coord.lon,coord.lat]).addTo(map);};
+  pin(leg.vanCoord,'from',leg.van);
+  pin(leg.naarCoord,'to',leg.naar);
+  // fit op de huidige rit met context (herbruikbaar — pane kan 0px zijn bij creatie)
+  if(legCoords&&legCoords.length>1){
+    const b=new maplibregl.LngLatBounds(legCoords[0],legCoords[0]);
+    legCoords.forEach(c=>b.extend(c));
+    if(leg.vanCoord&&leg.vanCoord.lon!=null)b.extend([leg.vanCoord.lon,leg.vanCoord.lat]);
+    if(leg.naarCoord&&leg.naarCoord.lon!=null)b.extend([leg.naarCoord.lon,leg.naarCoord.lat]);
+    map._refit=()=>{try{map.fitBounds(b,{padding:{top:46,bottom:30,left:34,right:34},duration:0,maxZoom:11});}catch(_){}};
+    map._refit();
+  }
+}
+function legMapGL(dag,leg){
+  const wrap=el('div');
+  const rt=DATA.routes&&DATA.routes[dag];
+  const kmtxt=rt?(rt.km+' km · '+fmtDur(rt.min)):((leg.km||'?')+' km · '+(leg.rijtijd||''));
+  wrap.appendChild(el('div','legcap','<span>🟢 '+esc(leg.van)+'</span><span>'+esc(kmtxt)+' 🔴</span>'));
+  const box=el('div','glmap','<div class="glmap-load"><span class="sp"></span>Kaart laden…</div>');
+  wrap.appendChild(box);
+  ensureGL().then(()=>{
+    if(_dayMap){try{_dayMap.remove();}catch(_){}}
+    const map=new maplibregl.Map({container:box,style:glStyle(),attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false,touchZoomRotate:true,maxZoom:14});
+    map.touchZoomRotate.disableRotation();
+    _dayMap=map;box._glmap=map;
+    map.addControl(new maplibregl.NavigationControl({showCompass:false,visualizePitch:false}),'bottom-right');
+    map.on('load',()=>{try{addRouteLayers(map,dag,leg);}catch(_){}const l=box.querySelector('.glmap-load');if(l)l.remove();});
+    map.on('error',()=>{});
+  }).catch(()=>{
+    const svg=legMap(dag,leg);box.innerHTML='';if(svg){box.style.height='auto';box.style.background='none';box.style.border='0';box.appendChild(svg);}else{wrap.removeChild(box);}
+  });
+  return wrap;
+}
+
 const typeMeta=t=>{
   if(/reisdag/.test(t))return{lbl:'Reisdag',cls:'b-reis',ic:'🚗'};
   if(/vrije/.test(t))return{lbl:'Vrije dag',cls:'b-vrij',ic:'☀️'};
@@ -624,7 +737,7 @@ function renderDay(d){
     const lg=d.leg;
     const b=el('div','block');
     b.appendChild(el('h4',null,'🧭 Route van vandaag'));
-    const lm=legMap(d.dag,lg); if(lm) b.appendChild(lm);
+    const lm=legMapGL(d.dag,lg); if(lm) b.appendChild(lm);
     b.appendChild(el('div','route-line','<span>'+esc(lg.van)+'</span><span class="arr">→</span><span>'+esc(lg.naar)+'</span>'));
     b.appendChild(el('div','route-meta','<span class="pill">📏 '+esc(lg.km)+' km</span><span class="pill">🕒 '+esc(lg.rijtijd)+'</span>'));
     if(lg.onderweg&&lg.onderweg.length){
@@ -726,7 +839,7 @@ function renderDay(d){
     const ctl=el('div','segctl');
     const show=key=>{
       ctl.querySelectorAll('.segbtn').forEach(x=>x.classList.toggle('on',x.dataset.seg===key));
-      segs.forEach(z=>{const on=(z.key===key);z.pane.style.display=on?'':'none';if(on){z.pane.style.animation='none';void z.pane.offsetWidth;z.pane.style.animation='';}});
+      segs.forEach(z=>{const on=(z.key===key);z.pane.style.display=on?'':'none';if(on){z.pane.style.animation='none';void z.pane.offsetWidth;z.pane.style.animation='';const gm=z.pane.querySelector('.glmap');if(gm&&gm._glmap){requestAnimationFrame(()=>{try{gm._glmap.resize();if(gm._glmap._refit)gm._glmap._refit();}catch(_){}});}}});
     };
     segs.forEach(s=>{
       const b=el('button','segbtn'+(s.key===initial?' on':''));
