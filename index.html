@@ -268,21 +268,29 @@ button{font-family:inherit}
 .dive-panel .kidnote{margin-top:9px;font-size:12.5px;color:#d6f3ee;background:rgba(70,200,206,.12);border-left:3px solid var(--aqua);padding:9px 12px;border-radius:0 9px 9px 0}
 .dots{display:inline-flex;gap:4px;vertical-align:-1px}.dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.22)}.dot.on{background:var(--aqua)}
 
-/* ribbon */
-.ribbon-wrap{overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch}
-.ribbon{display:flex;align-items:stretch;gap:3px;min-width:560px;height:64px}
-.seg{position:relative;flex:var(--g) 1 0;min-width:12px;border-radius:8px;background:var(--foam);border:1px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end;padding:6px 7px;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s}
-.seg:hover{transform:translateY(-2px);box-shadow:var(--sh)}
-.seg.flight{flex:.4 1 0;background:repeating-linear-gradient(135deg,var(--foam),var(--foam) 4px,#e1e9e7 4px,#e1e9e7 8px)}
-.seg.dive{background:var(--red);border-color:var(--red)}
-.seg.now{outline:2px solid var(--ink);outline-offset:1px}
-.seg .nm{font-family:var(--mono);font-size:9.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.seg.dive .nm{color:#fff;font-weight:600}
-.seg .n{font-family:var(--mono);font-size:9px;color:var(--teal)}
-.seg.dive .n{color:rgba(255,255,255,.85)}
-.seg .fl{position:absolute;top:4px;right:5px;font-size:11px}
-.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:13px;font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
-.legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:5px;vertical-align:-2px}
+/* ---- reis-tijdlijn (zeeroute / havens aan een route) ---- */
+.tl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:8px 0 4px;scroll-snap-type:x proximity}
+.tl-wrap::-webkit-scrollbar{display:none}
+.tl{position:relative;display:inline-flex;align-items:flex-start;min-width:100%;padding:0 4px}
+.tl::before{content:"";position:absolute;left:26px;right:26px;top:28px;height:2px;background:linear-gradient(90deg,transparent,var(--line) 5%,var(--sand) 50%,var(--line) 95%,transparent);z-index:0;border-radius:2px}
+.tl-stop{position:relative;z-index:1;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;padding:0 6px;cursor:pointer;background:none;border:0;font-family:inherit;scroll-snap-align:center}
+.tl-name{height:18px;line-height:18px;font-family:var(--disp);font-weight:600;font-size:12.5px;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;max-width:108px;overflow:hidden;text-overflow:ellipsis}
+.tl-node{height:22px;width:100%;display:flex;align-items:center;justify-content:center;position:relative}
+.tl-dot{width:15px;height:15px;border-radius:50%;background:var(--teal);border:3px solid var(--foam);box-shadow:0 0 0 1px var(--line),var(--sh-sm);transition:transform .2s}
+.tl-stop:hover .tl-dot{transform:scale(1.2)}
+.tl-stop.past .tl-dot{background:#9bb0b6}
+.tl-stop.dive .tl-dot{box-shadow:0 0 0 2px var(--red),var(--sh-sm)}
+.tl-stop.now .tl-name{color:var(--red)}
+.tl-stop.now .tl-dot{background:var(--red);animation:tlpulse 2.2s ease-in-out infinite}
+@keyframes tlpulse{0%,100%{box-shadow:0 0 0 1px var(--red),0 0 0 4px rgba(232,70,58,.22)}50%{box-shadow:0 0 0 1px var(--red),0 0 0 9px rgba(232,70,58,0)}}
+.tl-nights{margin-top:7px;font-family:var(--mono);font-size:10.5px;color:var(--ink);background:var(--foam);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap;box-shadow:var(--sh-sm)}
+.tl-nights b{color:var(--teal);font-size:12px;font-weight:700}
+.tl-stop.now .tl-nights b{color:var(--red)}
+.tl-date{margin-top:4px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);white-space:nowrap}
+.tl-dive{margin-top:5px;font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--red);background:rgba(232,70,58,.1);border-radius:999px;padding:2px 7px;white-space:nowrap}
+.tl-fly{cursor:default}
+.tl-fly .tl-node{color:var(--ink-faint);font-size:14px}
+.tl-fly .tl-foot{margin-top:7px;font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);white-space:nowrap}
 
 /* map */
 .mapbox{position:relative;margin:8px clamp(16px,4.5vw,30px);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:linear-gradient(180deg,#dbe9e7,#eef5f2);box-shadow:var(--sh-lg);height:min(68vh,560px);touch-action:none}
@@ -392,6 +400,7 @@ button{font-family:inherit}
   .view.active{animation:none}
   .hero img,.dayhero img{transform:none!important;transition:none!important;animation:none!important}
   .count::after{animation:none}
+  .tl-stop.now .tl-dot{animation:none}
 }
 @media (min-width:760px){ .dayhero img{height:260px} }
 
@@ -661,36 +670,39 @@ function renderVandaag(){
 }
 
 /* ---------- RIBBON ---------- */
+function shortDate(s){const d=pd(s);return d.getDate()+' '+MON[d.getMonth()];}
+function tlFly(label){
+  const f=el('div','tl-stop tl-fly');
+  f.innerHTML='<span class="tl-name"></span><span class="tl-node">✈</span><span class="tl-foot">'+esc(label)+'</span>';
+  return f;
+}
 function buildRibbon(mini){
-  const wrap=el('div','ribbon-wrap');
-  const rib=el('div','ribbon');
+  const wrap=el('div','tl-wrap');
+  const tl=el('div','tl');
   const cur=currentDayNum();
-  // start flight
-  rib.appendChild(seg('flight','vlucht','',null,false,null));
+  tl.appendChild(tlFly('heen'));
   DATA.stopsOrder.forEach(k=>{
     const s=DATA.stops[k];
-    const nights=(s.boeking?s.boeking.reduce((a,b)=>a+(b.nachten||0),0):s.dagen.length)|| s.dagen.length;
-    const isDive=!!(s.key==='reef'||s.key==='magnetic'||s.key==='palmcove');
-    const now=cur&&s.dagen.includes(cur);
-    rib.appendChild(seg(isDive?'dive':'',s.naamKort.split(' ')[0],(nights||1)+'n',k,now,isDive?'🤿':null,nights||1));
+    const nights=(s.boeking?s.boeking.reduce((a,b)=>a+(b.nachten||0),0):s.dagen.length)||s.dagen.length;
+    const dive=(k==='reef'||k==='magnetic'||k==='palmcove');
+    const last=s.dagen[s.dagen.length-1];
+    const cls=(cur&&s.dagen.includes(cur))?'now':((cur&&last<cur)?'past':'');
+    const d0=DATA.days[s.dagen[0]-1];
+    const date=d0?shortDate(d0.datum):'';
+    const name=s.naamKort.replace(/\s*\(.*\)/,'');
+    const b=el('button','tl-stop '+cls+(dive?' dive':''));
+    b.type='button';
+    b.innerHTML='<span class="tl-name">'+esc(name)+'</span>'+
+      '<span class="tl-node"><span class="tl-dot"></span></span>'+
+      '<span class="tl-nights"><b>'+nights+'</b> '+(mini?'n':(nights===1?'nacht':'nachten'))+'</span>'+
+      (date?'<span class="tl-date">'+esc(date)+'</span>':'')+
+      (dive?'<span class="tl-dive">🤿 duik</span>':'');
+    b.onclick=()=>go('dagen',s.dagen[0]);
+    tl.appendChild(b);
   });
-  rib.appendChild(seg('flight','vlucht','',null,false,null));
-  wrap.appendChild(rib);
-  if(!mini){
-    const lg=el('div','legend');
-    lg.innerHTML='<span><i style="background:var(--red)"></i>duikkans</span>'+
-      '<span><i style="background:var(--foam);border:1px solid var(--line)"></i>overnachting (breed = meer nachten)</span>'+
-      '<span><i style="background:repeating-linear-gradient(135deg,#e1e9e7,#e1e9e7 3px,var(--foam) 3px,var(--foam) 6px)"></i>vlucht</span>';
-    wrap.appendChild(lg);
-  }
+  tl.appendChild(tlFly('terug'));
+  wrap.appendChild(tl);
   return wrap;
-}
-function seg(cls,nm,n,key,now,flag,g){
-  const s=el('div','seg '+cls+(now?' now':''));
-  s.style.setProperty('--g',g||(cls==='flight'?.4:1));
-  s.innerHTML=(flag?'<span class="fl">'+flag+'</span>':'')+'<span class="nm">'+esc(nm)+'</span>'+(n?'<span class="n">'+esc(n)+'</span>':'');
-  if(key){s.onclick=()=>{const d=DATA.stops[key].dagen[0];go('dagen',d);};}
-  return s;
 }
 
 /* ---------- DAGEN ---------- */
@@ -1061,7 +1073,7 @@ const MapView=(function(){
     v.appendChild(box);
     v.appendChild(el('div','mhint','Sleep om te verschuiven · scroll of knijp om te zoomen'));
     const rb=el('div','pad section');
-    rb.innerHTML='<p class="eyebrow" style="margin-bottom:8px">Chronologische tijdlijn — breedte = aantal nachten</p>';
+    rb.innerHTML='<p class="eyebrow" style="margin-bottom:8px">Chronologische tijdlijn · tik een haven voor die dag</p>';
     rb.appendChild(buildRibbon(false));
     v.appendChild(rb);
     built=true;
