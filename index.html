@@ -122,6 +122,19 @@ button{font-family:inherit}
 .kvbar .k{font-family:var(--mono);font-size:11px;background:var(--foam);border:1px solid var(--line);border-radius:9px;padding:6px 10px;color:var(--ink-soft);box-shadow:var(--sh-sm)}
 .kvbar .k b{color:var(--ink)}
 
+/* day segmented control (minder scrollen) */
+.segctl{display:flex;gap:7px;margin:18px 0 2px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.segctl::-webkit-scrollbar{display:none}
+.segbtn{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--line);background:var(--foam);color:var(--ink-soft);border-radius:999px;padding:9px 14px;cursor:pointer;box-shadow:var(--sh-sm);white-space:nowrap;transition:background .25s,color .25s,border-color .25s,transform .2s}
+.segbtn .si{font-size:14px;line-height:1}
+.segbtn .sc{font-family:var(--mono);font-size:10px;background:rgba(10,37,48,.08);color:var(--ink-soft);border-radius:999px;padding:1px 7px}
+.segbtn:active{transform:scale(.95)}
+.segbtn.on{background:var(--ink);color:#fff;border-color:var(--ink);box-shadow:var(--sh)}
+.segbtn.on .sc{background:rgba(255,255,255,.22);color:#fff}
+.segpane{animation:segIn .42s var(--ease-out)}
+@keyframes segIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.segpane{animation:none}}
+
 .block{background:var(--foam);border:1px solid var(--line);border-radius:var(--r-sm);padding:16px 17px;margin:15px 0;box-shadow:var(--sh);position:relative}
 .block h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin:0 0 11px;display:flex;align-items:center;gap:8px}
 .block.teal h4{color:var(--teal)}
@@ -578,20 +591,23 @@ function renderDay(d){
   const wrap=el('div','daybody');
   wrap.innerHTML='<p class="lead">'+esc(d.samenvatting)+'</p>';
 
-  // flights for flight days
+  // segment panes: Route / Te zien / Verblijf
+  const segRoute=el('div','segpane'), segSee=el('div','segpane'), segStay=el('div','segpane');
+
+  // flights for flight days -> Route
   if(/nachtreis|vlucht|aankomst|vertrek/.test(d.type)){
     const fl=DATA.reismap.vluchten.filter(f=>f.datum===d.datum);
     if(fl.length){
       const b=el('div','block');b.innerHTML='<h4>✈️ Vluchten vandaag</h4>'+fl.map(f=>
         '<p><span class="mono" style="color:var(--teal)">'+esc(f.vluchtnummer)+'</span> · '+esc(f.van)+' '+esc(f.vertrek)+' → '+esc(f.naar)+' '+esc(f.aankomst)+(f.aankomstVolgendeDag?' (+1)':'')+'</p>').join('');
-      wrap.appendChild(b);
+      segRoute.appendChild(b);
     }
   }
-  // car pickup/dropoff
-  if(d.huurautoOphalen){wrap.appendChild(el('div','block teal','<h4>🚗 Huurauto ophalen</h4><p>'+esc(d.huurautoOphalen)+' — Europcar, 26–36 College Street, Sydney. Ford Ranger 4WD.</p>'));}
-  if(d.huurautoInleveren){wrap.appendChild(el('div','block','<h4>🚗 Huurauto inleveren</h4><p>Cairns Airport (CNS), uiterlijk 16:00. Tank vooraf nog even vol.</p>'));}
+  // car pickup/dropoff -> Route
+  if(d.huurautoOphalen){segRoute.appendChild(el('div','block teal','<h4>🚗 Huurauto ophalen</h4><p>'+esc(d.huurautoOphalen)+' — Europcar, 26–36 College Street, Sydney. Ford Ranger 4WD.</p>'));}
+  if(d.huurautoInleveren){segRoute.appendChild(el('div','block','<h4>🚗 Huurauto inleveren</h4><p>Cairns Airport (CNS), uiterlijk 16:00. Tank vooraf nog even vol.</p>'));}
 
-  // route (travel days)
+  // route (travel days) -> Route
   if(d.leg){
     const lg=d.leg;
     const b=el('div','block');
@@ -633,24 +649,24 @@ function renderDay(d){
     } else if(lg.mapsRoute){
       const a=el('a','btn teal sm'); a.style.marginTop='10px'; a.target='_blank'; a.rel='noopener'; a.href=lg.mapsRoute; a.innerHTML='Open route in Google Maps ↗'; b.appendChild(a);
     }
-    wrap.appendChild(b);
+    segRoute.appendChild(b);
   }
 
   // stop info (place + accommodation + weather + sights)
   if(stop){
-    // weather
+    // weather -> Verblijf
     if(stop.weer){
       const w=stop.weer;
-      wrap.appendChild(el('div','weer','<div class="t">'+w.min+'–'+w.max+'°<br><small>juli/aug</small></div>'+
+      segStay.appendChild(el('div','weer','<div class="t">'+w.min+'–'+w.max+'°<br><small>juli/aug</small></div>'+
         '<div class="wt"><b>Weer & wat aan</b>'+esc(w.omschrijving)+' <i>'+esc(w.watAantrekken)+'</i></div>'));
     }
-    // over deze plek + regio-galerij
+    // over deze plek + regio-galerij -> Verblijf
     if(stop.overDezePlek){
       const ob=el('div','block teal','<h4>📍 Over '+esc(stop.naamKort)+'</h4><p>'+esc(stop.overDezePlek)+'</p>');
       const g=gallery(stop.imgs,stop.naamKort); if(g){g.style.marginTop='10px';ob.appendChild(g);}
-      wrap.appendChild(ob);
+      segStay.appendChild(ob);
     }
-    // verblijf + hotel-galerij
+    // verblijf + hotel-galerij -> Verblijf
     if(stop.verblijf){
       const vb=stop.verblijf;
       const hb=el('div','block','<h4>🏨 Jullie verblijf — '+esc(vb.naam)+'</h4><p>'+esc(vb.beschrijving)+'</p>');
@@ -668,20 +684,49 @@ function renderDay(d){
       const extra=el('div'); extra.style.marginTop='8px';
       extra.innerHTML=bk+(vb.mapsLink?'<a class="maplink" style="margin-top:6px" target="_blank" rel="noopener" href="'+esc(vb.mapsLink)+'">📍 '+esc(vb.adres||'Open in Maps')+'</a>':'');
       hb.appendChild(extra);
-      wrap.appendChild(hb);
+      segStay.appendChild(hb);
     }
-    // dive panel
+    // dive panel -> Te zien
     if(d.diveKey){
       const dv=DATA.dives.find(x=>x.key===d.diveKey);
-      if(dv)wrap.appendChild(divePanel(dv));
+      if(dv)segSee.appendChild(divePanel(dv));
     }
-    // sights
+    // sights -> Te zien
     if(stop.bezienswaardigheden&&stop.bezienswaardigheden.length){
-      const sh=el('div','section');
+      const sh=el('div','section');sh.style.marginTop='6px';
       sh.innerHTML='<h2 class="h2"><span class="num">'+stop.bezienswaardigheden.length+'</span>Bezienswaardigheden</h2><p class="sub">Afstand = rijtijd vanaf je verblijf. ⭐ = echte aanrader.</p>';
-      const sorted=stop.bezienswaardigheden.slice().sort((a,b)=>(b.mustSee-a.mustSee));const grid=el('div','sights');var SHOW=3;sorted.slice(0,SHOW).forEach(function(s){grid.appendChild(sightCard(s));});sh.appendChild(grid);if(sorted.length>SHOW){var tb=el('button','btn ghost sm');tb.style.cssText='margin:16px auto 0;display:flex;width:fit-content';var more=el('div','sights');more.style.cssText='display:none;margin-top:12px';sorted.slice(SHOW).forEach(function(s){more.appendChild(sightCard(s));});var setlbl=function(){tb.textContent=(more.style.display==='none'?('Toon alle '+sorted.length+' bezienswaardigheden ↓'):'Minder tonen ↑');};tb.onclick=function(){more.style.display=(more.style.display==='none'?'grid':'none');setlbl();};setlbl();sh.appendChild(tb);sh.appendChild(more);}wrap.appendChild(sh);
+      const sorted=stop.bezienswaardigheden.slice().sort((a,b)=>(b.mustSee-a.mustSee));const grid=el('div','sights');var SHOW=3;sorted.slice(0,SHOW).forEach(function(s){grid.appendChild(sightCard(s));});sh.appendChild(grid);if(sorted.length>SHOW){var tb=el('button','btn ghost sm');tb.style.cssText='margin:16px auto 0;display:flex;width:fit-content';var more=el('div','sights');more.style.cssText='display:none;margin-top:12px';sorted.slice(SHOW).forEach(function(s){more.appendChild(sightCard(s));});var setlbl=function(){tb.textContent=(more.style.display==='none'?('Toon alle '+sorted.length+' bezienswaardigheden ↓'):'Minder tonen ↑');};tb.onclick=function(){more.style.display=(more.style.display==='none'?'grid':'none');setlbl();};setlbl();sh.appendChild(tb);sh.appendChild(more);}segSee.appendChild(sh);
     }
   }
+
+  // assemble segments — only those with content
+  const segs=[
+    {key:'route',ic:'🧭',lbl:'Route',pane:segRoute},
+    {key:'see',ic:'⭐',lbl:'Te zien',pane:segSee,count:(stop&&stop.bezienswaardigheden?stop.bezienswaardigheden.length:0)},
+    {key:'stay',ic:'🏨',lbl:'Verblijf',pane:segStay}
+  ].filter(s=>s.pane.childElementCount>0);
+  const has=k=>segs.some(s=>s.key===k);
+
+  if(segs.length<=1){
+    segs.forEach(s=>wrap.appendChild(s.pane));
+  } else {
+    let initial = (d.diveKey&&has('see'))?'see':(has('route')?'route':segs[0].key);
+    const ctl=el('div','segctl');
+    const show=key=>{
+      ctl.querySelectorAll('.segbtn').forEach(x=>x.classList.toggle('on',x.dataset.seg===key));
+      segs.forEach(z=>{const on=(z.key===key);z.pane.style.display=on?'':'none';if(on){z.pane.style.animation='none';void z.pane.offsetWidth;z.pane.style.animation='';}});
+    };
+    segs.forEach(s=>{
+      const b=el('button','segbtn'+(s.key===initial?' on':''));
+      b.type='button';b.dataset.seg=s.key;
+      b.innerHTML='<span class="si">'+s.ic+'</span>'+s.lbl+(s.count?'<span class="sc">'+s.count+'</span>':'');
+      b.onclick=()=>show(s.key);
+      ctl.appendChild(b);
+    });
+    wrap.appendChild(ctl);
+    segs.forEach(s=>{s.pane.style.display=(s.key===initial?'':'none');wrap.appendChild(s.pane);});
+  }
+
   body.appendChild(wrap);
   body.querySelectorAll('.reveal').forEach(e=>io.observe(e));
 }
