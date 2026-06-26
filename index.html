@@ -283,6 +283,29 @@ button{font-family:inherit}
 .acclist a .n{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
 .credits{font-size:11.5px;color:var(--ink-soft);line-height:1.7}
 
+/* ---- accordions (progressive disclosure) ---- */
+.acc-group{margin:18px clamp(16px,4.5vw,30px) 0;display:flex;flex-direction:column;gap:11px}
+.acc-item{background:var(--foam);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:var(--sh);overflow:hidden;transition:border-color .3s,box-shadow .3s}
+.acc-item.open{border-color:rgba(14,124,139,.34);box-shadow:var(--sh-lg)}
+.acc-head{width:100%;display:flex;align-items:center;gap:13px;padding:15px 16px;background:none;border:0;cursor:pointer;text-align:left;color:var(--ink)}
+.acc-head .acc-ic{flex:0 0 auto;width:38px;height:38px;border-radius:11px;background:linear-gradient(140deg,var(--sand-2),#f0e7d2);display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:var(--sh-sm);transition:transform .3s var(--ease)}
+.acc-item.open .acc-head .acc-ic{transform:scale(1.06) rotate(-3deg)}
+.acc-head .acc-tt{flex:1;min-width:0}
+.acc-head .acc-t{font-family:var(--disp);font-weight:600;font-size:17px;letter-spacing:-.01em;line-height:1.15}
+.acc-head .acc-sub{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--ink-faint);margin-top:3px;text-transform:uppercase}
+.acc-chev{flex:0 0 auto;width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--teal);font-size:13px;transition:transform .38s var(--ease),background .25s;background:rgba(14,124,139,.09)}
+.acc-item.open .acc-chev{transform:rotate(180deg);background:rgba(14,124,139,.18)}
+.acc-head:active .acc-chev{transform:scale(.9)}
+.acc-item.open .acc-head:active .acc-chev{transform:rotate(180deg) scale(.9)}
+.acc-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease)}
+.acc-item.open .acc-body{grid-template-rows:1fr}
+.acc-inner{overflow:hidden;min-height:0}
+.acc-pad{padding:2px 16px 17px}
+.acc-pad>.sub{margin-bottom:14px}
+.acc-pad>.pk:first-child,.acc-pad>.banner:first-child{margin-top:0}
+.acc-pad>.block:first-child,.acc-pad>.drv:first-child{margin-top:0;border-top:0}
+@media (prefers-reduced-motion:reduce){.acc-body{transition:none}.acc-chev,.acc-head .acc-ic{transition:none}}
+
 /* bottom tabbar */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--tabh) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:rgba(251,246,234,.86);backdrop-filter:saturate(1.5) blur(16px);-webkit-backdrop-filter:saturate(1.5) blur(16px);border-top:1px solid var(--line);display:flex;box-shadow:0 -8px 30px -22px rgba(5,32,43,.6)}
 .tab{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:none;cursor:pointer;color:var(--ink-soft);padding:6px 2px;transition:color .25s}
@@ -709,77 +732,110 @@ function renderDuiken(){
   v.appendChild(list);
 }
 
+/* reusable accordion (progressive disclosure) */
+function accordion(ic,title,sub,contentNode,opts){
+  opts=opts||{};
+  const item=el('div','acc-item'+(opts.open?' open':''));
+  const head=el('button','acc-head');
+  head.type='button';
+  head.setAttribute('aria-expanded',opts.open?'true':'false');
+  head.innerHTML='<span class="acc-ic">'+ic+'</span><span class="acc-tt"><span class="acc-t">'+esc(title)+'</span>'+(sub?'<span class="acc-sub">'+esc(sub)+'</span>':'')+'</span><span class="acc-chev" aria-hidden="true">▾</span>';
+  const body=el('div','acc-body');
+  const inner=el('div','acc-inner');
+  const pad=el('div','acc-pad');
+  pad.appendChild(contentNode);
+  inner.appendChild(pad);body.appendChild(inner);
+  head.onclick=()=>{const o=item.classList.toggle('open');head.setAttribute('aria-expanded',o?'true':'false');};
+  item.appendChild(head);item.appendChild(body);
+  return item;
+}
+
 /* ---------- PRAKTISCH ---------- */
 function renderPraktisch(){
   const v=views.praktisch;v.innerHTML='';
   const head=el('div','pad');
-  head.innerHTML='<h2 class="h2"><span class="num">🧳</span>Praktisch</h2><p class="sub">Weer & inpakken, veilig rijden, budget en al je reisgegevens op één plek.</p>';
+  head.innerHTML='<h2 class="h2"><span class="num">🧳</span>Praktisch</h2><p class="sub">Weer & inpakken, veilig rijden en al je reisgegevens — tik een kaart open.</p>';
   v.appendChild(head);
 
-  // warnings
+  // warnings (altijd zichtbaar — belangrijk)
   if(DATA.warnings&&DATA.warnings.length){
     const w=el('div','pad');
     DATA.warnings.forEach(x=>w.appendChild(el('div','warnc','<h4>⚠️ '+esc(x.titel)+'</h4><p>'+esc(x.tekst)+'</p>')));
     v.appendChild(w);
   }
 
+  const grp=el('div','acc-group');
+
   // weer & inpakken
-  const pk=el('div','pad section');
-  pk.innerHTML='<h2 class="h2"><span class="num">🌦️</span>Weer & inpaklijst</h2><p class="sub">'+esc(DATA.packing.intro)+'</p>';
-  pk.appendChild(el('img','banner',null)).src='img/ai/inpakken.jpg';
-  DATA.packing.groepen.forEach(g=>{
-    const d=el('div','pk');d.innerHTML='<h4>'+esc(g.titel)+'</h4>';
-    const ul=el('ul');g.items.forEach(it=>ul.appendChild(el('li',null,esc(it))));
-    d.appendChild(ul);pk.appendChild(d);
-  });
-  v.appendChild(pk);
+  {
+    const c=el('div');
+    c.appendChild(el('p','sub',esc(DATA.packing.intro)));
+    c.appendChild(el('img','banner',null)).src='img/ai/inpakken.jpg';
+    DATA.packing.groepen.forEach(g=>{
+      const d=el('div','pk');d.innerHTML='<h4>'+esc(g.titel)+'</h4>';
+      const ul=el('ul');g.items.forEach(it=>ul.appendChild(el('li',null,esc(it))));
+      d.appendChild(ul);c.appendChild(d);
+    });
+    grp.appendChild(accordion('🌦️','Weer & inpaklijst',DATA.packing.groepen.length+' categorieën',c));
+  }
 
   // rijden & veiligheid
-  const dr=el('div','pad section');
-  dr.innerHTML='<h2 class="h2"><span class="num">🚙</span>Rijden & veiligheid</h2>';
-  DATA.driving.forEach(x=>dr.appendChild(el('div','drv','<div class="ic">'+x.ic+'</div><div><div class="nm">'+esc(x.titel)+'</div><div class="tx">'+esc(x.tekst)+'</div></div>')));
-  v.appendChild(dr);
+  {
+    const c=el('div');
+    DATA.driving.forEach(x=>c.appendChild(el('div','drv','<div class="ic">'+x.ic+'</div><div><div class="nm">'+esc(x.titel)+'</div><div class="tx">'+esc(x.tekst)+'</div></div>')));
+    grp.appendChild(accordion('🚙','Rijden & veiligheid',DATA.driving.length+' aandachtspunten',c));
+  }
 
-  // budget
-  const bd=el('div','pad section');
-  bd.innerHTML='<h2 class="h2"><span class="num">💡</span>Ter plaatse & extra&#39;s</h2><p class="sub">'+esc(DATA.budget.intro)+'</p>';
-  const tb=el('table','btab');
-  DATA.budget.items.forEach(i=>{const tr=el('tr');tr.innerHTML='<td>'+esc(i.post)+'</td><td class="nt">'+esc(i.note)+'</td>';tb.appendChild(tr);});
-  bd.appendChild(tb);v.appendChild(bd);
+  // ter plaatse & extra's
+  {
+    const c=el('div');
+    c.appendChild(el('p','sub',esc(DATA.budget.intro)));
+    const tb=el('table','btab');
+    DATA.budget.items.forEach(i=>{const tr=el('tr');tr.innerHTML='<td>'+esc(i.post)+'</td><td class="nt">'+esc(i.note)+'</td>';tb.appendChild(tr);});
+    c.appendChild(tb);
+    grp.appendChild(accordion('💡','Ter plaatse & extra’s',DATA.budget.items.length+' posten',c));
+  }
 
   // reismap
-  const rm=DATA.reismap;
-  const rs=el('div','pad section');
-  rs.innerHTML='<h2 class="h2"><span class="num">🗂️</span>Reismap</h2><p class="sub">Vluchten, accommodaties, boekingsgegevens en noodnummers.</p>';
-  // flights
-  let f='<div class="block"><h4>✈️ Vluchten — Singapore Airlines</h4>';
-  rm.vluchten.forEach(x=>f+='<div class="flt"><div><div class="fn">'+esc(x.vluchtnummer)+'</div>'+esc(x.van)+' → '+esc(x.naar)+'</div><div style="text-align:right;white-space:nowrap">'+fmt(x.datum)+'<br><span class="mono" style="font-size:11px;color:var(--ink-soft)">'+esc(x.vertrek)+'→'+esc(x.aankomst)+(x.aankomstVolgendeDag?' +1':'')+'</span></div></div>');
-  f+='</div>';rs.innerHTML+=f;
-  // accommodations
-  let ac='<div class="block"><h4>🏨 Accommodaties</h4><div class="acclist">';
-  DATA.stopsOrder.forEach(k=>{const s=DATA.stops[k];if(!s.boeking)return;s.boeking.forEach(b=>{
-    ac+='<a href="#" data-go-dag="'+s.dagen[0]+'"><span>'+esc(b.naam)+'</span><span class="n">'+fmt(b.inchecken)+' · '+b.nachten+'n</span></a>';
-  });});
-  ac+='</div></div>';rs.innerHTML+=ac;
-  // car/ferry/cruise
-  rs.innerHTML+='<div class="block"><h4>🚗 Vervoer ter plaatse</h4>'+
-    '<p><b>Huurauto:</b> '+esc(rm.autoverhuur.type)+'. Ophalen '+fmt(rm.autoverhuur.ophalenDatum)+' '+esc(rm.autoverhuur.ophalenTijd)+' ('+esc(rm.autoverhuur.ophalenLocatie)+'); inleveren '+fmt(rm.autoverhuur.inleverenDatum)+' '+esc(rm.autoverhuur.inleverenTijd)+' ('+esc(rm.autoverhuur.inleverenLocatie)+').</p>'+
-    '<p><b>Veerboten:</b> River Heads ↔ K\'gari (inbegrepen) · Townsville ↔ Magnetic Island (passagiers, auto blijft achter).</p>'+
-    '<p><b>Cruise:</b> Reefsleep — vertrek Port of Airlie 31 jul, terug 1 aug.</p></div>';
-  // refs
-  let rf='<div class="block teal"><h4>📋 Boekingsgegevens</h4><table class="info-tbl">';
-  rm.refs.forEach(r=>rf+='<tr><td>'+esc(r.label)+'</td><td>'+esc(r.waarde)+'</td></tr>');
-  rf+='</table></div>';rs.innerHTML+=rf;
-  // emergency
-  let em='<div class="block"><h4>🆘 Nood & contact</h4><table class="info-tbl">';
-  rm.nood.forEach(r=>em+='<tr><td>'+esc(r.label)+'</td><td>'+esc(r.waarde)+'</td></tr>');
-  em+='</table></div>';rs.innerHTML+=em;
-  v.appendChild(rs);
+  {
+    const rm=DATA.reismap;
+    const c=el('div');
+    let html='';
+    // flights
+    html+='<div class="block"><h4>✈️ Vluchten — Singapore Airlines</h4>';
+    rm.vluchten.forEach(x=>html+='<div class="flt"><div><div class="fn">'+esc(x.vluchtnummer)+'</div>'+esc(x.van)+' → '+esc(x.naar)+'</div><div style="text-align:right;white-space:nowrap">'+fmt(x.datum)+'<br><span class="mono" style="font-size:11px;color:var(--ink-soft)">'+esc(x.vertrek)+'→'+esc(x.aankomst)+(x.aankomstVolgendeDag?' +1':'')+'</span></div></div>');
+    html+='</div>';
+    // accommodations
+    html+='<div class="block"><h4>🏨 Accommodaties</h4><div class="acclist">';
+    DATA.stopsOrder.forEach(k=>{const s=DATA.stops[k];if(!s.boeking)return;s.boeking.forEach(b=>{
+      html+='<a href="#" data-go-dag="'+s.dagen[0]+'"><span>'+esc(b.naam)+'</span><span class="n">'+fmt(b.inchecken)+' · '+b.nachten+'n</span></a>';
+    });});
+    html+='</div></div>';
+    // car/ferry/cruise
+    html+='<div class="block"><h4>🚗 Vervoer ter plaatse</h4>'+
+      '<p><b>Huurauto:</b> '+esc(rm.autoverhuur.type)+'. Ophalen '+fmt(rm.autoverhuur.ophalenDatum)+' '+esc(rm.autoverhuur.ophalenTijd)+' ('+esc(rm.autoverhuur.ophalenLocatie)+'); inleveren '+fmt(rm.autoverhuur.inleverenDatum)+' '+esc(rm.autoverhuur.inleverenTijd)+' ('+esc(rm.autoverhuur.inleverenLocatie)+').</p>'+
+      '<p><b>Veerboten:</b> River Heads ↔ K\'gari (inbegrepen) · Townsville ↔ Magnetic Island (passagiers, auto blijft achter).</p>'+
+      '<p><b>Cruise:</b> Reefsleep — vertrek Port of Airlie 31 jul, terug 1 aug.</p></div>';
+    // refs
+    html+='<div class="block teal"><h4>📋 Boekingsgegevens</h4><table class="info-tbl">';
+    rm.refs.forEach(r=>html+='<tr><td>'+esc(r.label)+'</td><td>'+esc(r.waarde)+'</td></tr>');
+    html+='</table></div>';
+    // emergency
+    html+='<div class="block"><h4>🆘 Nood & contact</h4><table class="info-tbl">';
+    rm.nood.forEach(r=>html+='<tr><td>'+esc(r.label)+'</td><td>'+esc(r.waarde)+'</td></tr>');
+    html+='</table></div>';
+    c.innerHTML=html;
+    grp.appendChild(accordion('🗂️','Reismap','Vluchten · hotels · noodnummers',c));
+  }
 
-  // credits
-  const cr=el('div','pad section');
-  cr.innerHTML='<hr class="rule"><p class="credits"><b>Beeld:</b> illustraties gegenereerd met AI (Google Gemini via OpenRouter). Regiofoto\'s via Wikimedia Commons / Wikipedia (vrij te gebruiken; rechten bij de respectieve fotografen). Kaartdata © Natural Earth (publiek domein).<br><b>Onderzoek:</b> afstanden, rijtijden en bezienswaardigheden zijn zorgvuldige schattingen ter planning — controleer actuele tijden, openingstijden en prijzen ter plekke. Reis geboekt via Travelcenter de Wit (Daisy van der Meer).<br><b>Gemaakt voor:</b> Bart, Joice, Storm & Boris — veel plezier! 🌏</p>';
-  v.appendChild(cr);
+  // verantwoording / credits
+  {
+    const c=el('div');
+    c.innerHTML='<p class="credits"><b>Beeld:</b> illustraties gegenereerd met AI (Google Gemini via OpenRouter). Regiofoto\'s via Wikimedia Commons / Wikipedia (vrij te gebruiken; rechten bij de respectieve fotografen). Kaartdata © Natural Earth (publiek domein).<br><b>Onderzoek:</b> afstanden, rijtijden en bezienswaardigheden zijn zorgvuldige schattingen ter planning — controleer actuele tijden, openingstijden en prijzen ter plekke. Reis geboekt via Travelcenter de Wit (Daisy van der Meer).<br><b>Gemaakt voor:</b> Bart, Joice, Storm & Boris — veel plezier! 🌏</p>';
+    grp.appendChild(accordion('📷','Verantwoording','Beeld · onderzoek · credits',c));
+  }
+
+  v.appendChild(grp);
 
   v.querySelectorAll('[data-go-dag]').forEach(a=>a.onclick=e=>{e.preventDefault();go('dagen',+a.dataset.goDag);});
 }
