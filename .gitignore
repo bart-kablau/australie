@@ -2,3 +2,5 @@ lib/pmtiles.exe
 lib/*.zip
 lib/LICENSE
 lib/README.md
+
+.playwright-mcp/
