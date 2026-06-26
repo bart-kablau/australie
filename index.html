@@ -695,7 +695,7 @@ function renderPraktisch(){
 
   // budget
   const bd=el('div','pad section');
-  bd.innerHTML='<h2 class="h2"><span class="num">💡</span>Ter plaatse & extra's</h2><p class="sub">'+esc(DATA.budget.intro)+'</p>';
+  bd.innerHTML='<h2 class="h2"><span class="num">💡</span>Ter plaatse & extra&#39;s</h2><p class="sub">'+esc(DATA.budget.intro)+'</p>';
   const tb=el('table','btab');
   DATA.budget.items.forEach(i=>{const tr=el('tr');tr.innerHTML='<td>'+esc(i.post)+'</td><td class="nt">'+esc(i.note)+'</td>';tb.appendChild(tr);});
   bd.appendChild(tb);v.appendChild(bd);
