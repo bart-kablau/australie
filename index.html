@@ -286,7 +286,15 @@ button{font-family:inherit}
 .tl-nights{margin-top:7px;font-family:var(--mono);font-size:10.5px;color:var(--ink);background:var(--foam);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap;box-shadow:var(--sh-sm)}
 .tl-nights b{color:var(--teal);font-size:12px;font-weight:700}
 .tl-stop.now .tl-nights b{color:var(--red)}
-.tl-date{margin-top:4px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);white-space:nowrap}
+.tl-days{margin-top:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.02em;color:var(--teal);white-space:nowrap}
+.tl-stop.past .tl-days{color:var(--ink-faint)}
+.tl-stop.now .tl-days{color:var(--red)}
+.tl-date{margin-top:3px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);white-space:nowrap}
+/* tijdlijn-balk op de Dagen-pagina */
+.daytl{padding:4px 0 6px;border-bottom:1px solid var(--line-2);margin-bottom:2px}
+.tl-mini .tl-name{font-size:11.5px;max-width:92px}
+.tl-mini .tl-nights{font-size:10px;padding:2px 8px}
+.tl-mini .tl-stop{padding:0 5px}
 .tl-dive{margin-top:5px;font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--red);background:rgba(232,70,58,.1);border-radius:999px;padding:2px 7px;white-space:nowrap}
 .tl-fly{cursor:default}
 .tl-fly .tl-node{color:var(--ink-faint);font-size:14px}
@@ -676,37 +684,48 @@ function tlFly(label){
   f.innerHTML='<span class="tl-name"></span><span class="tl-node">✈</span><span class="tl-foot">'+esc(label)+'</span>';
   return f;
 }
-function buildRibbon(mini){
-  const wrap=el('div','tl-wrap');
+function buildRibbon(mini,activeDay){
+  const wrap=el('div','tl-wrap'+(mini?' tl-mini':''));
   const tl=el('div','tl');
-  const cur=currentDayNum();
+  const cur=(activeDay!=null)?activeDay:currentDayNum();
   tl.appendChild(tlFly('heen'));
   DATA.stopsOrder.forEach(k=>{
     const s=DATA.stops[k];
     const nights=(s.boeking?s.boeking.reduce((a,b)=>a+(b.nachten||0),0):s.dagen.length)||s.dagen.length;
     const dive=(k==='reef'||k==='magnetic'||k==='palmcove');
-    const last=s.dagen[s.dagen.length-1];
-    const cls=(cur&&s.dagen.includes(cur))?'now':((cur&&last<cur)?'past':'');
-    const d0=DATA.days[s.dagen[0]-1];
-    const date=d0?shortDate(d0.datum):'';
+    const f=s.dagen[0], l=s.dagen[s.dagen.length-1];
+    const cls=(cur!=null&&cur>=f&&cur<=l)?'now':((cur!=null&&l<cur)?'past':'');
+    const dd=DATA.days[f-1];
+    const date=dd?shortDate(dd.datum):'';
+    const dag=(f===l)?('dag '+f):('dag '+f+'–'+l);
     const name=s.naamKort.replace(/\s*\(.*\)/,'');
     const b=el('button','tl-stop '+cls+(dive?' dive':''));
-    b.type='button';
+    b.type='button';b.dataset.d0=f;b.dataset.d1=l;
     b.innerHTML='<span class="tl-name">'+esc(name)+'</span>'+
       '<span class="tl-node"><span class="tl-dot"></span></span>'+
       '<span class="tl-nights"><b>'+nights+'</b> '+(mini?'n':(nights===1?'nacht':'nachten'))+'</span>'+
+      '<span class="tl-days">'+dag+'</span>'+
       (date?'<span class="tl-date">'+esc(date)+'</span>':'')+
       (dive?'<span class="tl-dive">🤿 duik</span>':'');
-    b.onclick=()=>go('dagen',s.dagen[0]);
+    b.onclick=()=>go('dagen',f);
     tl.appendChild(b);
   });
   tl.appendChild(tlFly('terug'));
   wrap.appendChild(tl);
   return wrap;
 }
+function tlSetActive(wrap,day){
+  if(!wrap)return;let act=null;
+  wrap.querySelectorAll('.tl-stop[data-d0]').forEach(b=>{
+    const f=+b.dataset.d0,l=+b.dataset.d1,now=(day>=f&&day<=l);
+    b.classList.toggle('now',now);b.classList.toggle('past',l<day);
+    if(now)act=b;
+  });
+  if(act)act.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});
+}
 
 /* ---------- DAGEN ---------- */
-let curDay=1;
+let curDay=1, dayTL=null;
 function renderDagenShell(){
   const v=views.dagen;v.innerHTML='';
   const nav=el('div','daynav');
@@ -716,6 +735,11 @@ function renderDagenShell(){
     '<button class="navbtn" id="nextDay">›</button></div>'+
     '<div class="chips" id="chips"></div>';
   v.appendChild(nav);
+  // reis-tijdlijn (waar zit deze dag in de reis)
+  const tlbar=el('div','daytl');
+  dayTL=buildRibbon(true,curDay);
+  tlbar.appendChild(dayTL);
+  v.appendChild(tlbar);
   const body=el('div');body.id='dayBody';v.appendChild(body);
   // chips
   const chips=qs('#chips',v);
@@ -735,6 +759,7 @@ function setDay(n){
   qs('#prevDay',v).disabled=(n<=1);qs('#nextDay',v).disabled=(n>=32);
   v.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',+c.dataset.dag===n));
   const on=v.querySelector('.chip.on');if(on)on.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});
+  tlSetActive(dayTL,n);
   renderDay(d);
   if(location.hash!=='#dag-'+n)history.replaceState(null,'','#dag-'+n);
 }
