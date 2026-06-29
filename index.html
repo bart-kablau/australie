@@ -55,14 +55,14 @@ button{font-family:inherit}
 .rule{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent);border:0;margin:30px 0}
 
 /* ---- hero ---- */
-.hero{position:relative;border-radius:0 0 var(--r-lg) var(--r-lg);overflow:hidden;margin-bottom:8px;box-shadow:var(--sh-lg)}
-.hero img{width:100%;height:clamp(300px,62vw,440px);object-fit:cover;object-position:center 42%;display:block;animation:kb 1.5s var(--ease-out) both}
-.hero .cap{position:absolute;left:0;right:0;bottom:0;padding:58px clamp(16px,4.5vw,30px) 24px;background:linear-gradient(180deg,rgba(5,32,43,0) 0%,rgba(5,32,43,.30) 30%,rgba(5,32,43,.72) 62%,rgba(5,32,43,.92) 84%,rgba(5,32,43,.98) 100%);color:#fff}
-.hero .cap .eyebrow{color:var(--gold);letter-spacing:.24em}
-.hero h1{font-family:var(--disp);font-weight:600;letter-spacing:-.02em;line-height:.98;font-size:clamp(34px,9.5vw,62px);margin:8px 0 7px;text-shadow:0 2px 24px rgba(5,32,43,.55)}
-.hero h1 em{font-style:italic;color:#ff8576}
-.hero .who{font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.86);letter-spacing:.02em}
-.banner{width:100%;border-radius:var(--r-sm);margin:0 0 16px;box-shadow:var(--sh)}
+.hero{position:relative;overflow:hidden;margin-bottom:8px}
+.hero img{width:100%;height:auto;display:block;animation:kb 1.5s var(--ease-out) both}
+.hero .cap{position:absolute;left:0;right:0;bottom:0;padding:24px clamp(16px,4.5vw,30px) 22px;background:none;color:var(--ink);text-align:center}
+.hero .cap .eyebrow{color:var(--ink);font-weight:700;letter-spacing:.24em;text-shadow:0 0 5px rgba(251,246,234,.95),0 1px 1px rgba(251,246,234,.95)}
+.hero h1{font-family:var(--disp);font-weight:600;letter-spacing:-.02em;line-height:.98;font-size:clamp(34px,9.5vw,62px);margin:8px 0 7px;text-shadow:0 0 6px rgba(251,246,234,.85)}
+.hero h1 em{font-style:italic;color:var(--red)}
+.hero .who{font-family:var(--mono);font-size:12px;color:var(--ink);font-weight:700;letter-spacing:.02em;text-shadow:0 0 5px rgba(251,246,234,.95),0 1px 1px rgba(251,246,234,.95)}
+.banner{width:100%;margin:0 0 16px}
 
 /* ---- cards ---- */
 .card{background:var(--foam);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
@@ -74,7 +74,7 @@ button{font-family:inherit}
    radial-gradient(115% 95% at 84% -15%, rgba(216,178,90,.55), transparent 56%),
    radial-gradient(95% 85% at 6% 118%, rgba(232,70,58,.32), transparent 60%),
    linear-gradient(162deg,#0e3a45,#06222c);
-   color:#fdf6e9;border-radius:var(--r-lg);padding:30px 24px;text-align:center;box-shadow:var(--sh-lg);position:relative;overflow:hidden;margin-top:-38px;border:1px solid rgba(255,255,255,.07)}
+   color:#fdf6e9;border-radius:var(--r-lg);padding:30px 24px;text-align:center;box-shadow:var(--sh-lg);position:relative;overflow:hidden;margin-top:18px;border:1px solid rgba(255,255,255,.07)}
 .count::after{content:"";position:absolute;left:0;top:0;height:3px;width:100%;background:linear-gradient(90deg,var(--red),var(--gold),var(--aqua),var(--red));background-size:300% 100%;animation:shimmer 8s linear infinite}
 @keyframes shimmer{to{background-position:300% 0}}
 .count::before{content:"";position:absolute;inset:0;background:radial-gradient(72% 55% at 72% 0,rgba(216,178,90,.22),transparent 70%);pointer-events:none}
@@ -166,6 +166,7 @@ button{font-family:inherit}
 .vd-list li{position:relative;padding:3px 0 3px 18px;font-size:14.5px;line-height:1.5;color:var(--ink)}
 .vd-list li:before{content:'';position:absolute;left:3px;top:10px;width:6px;height:6px;border-radius:50%;background:var(--teal);opacity:.65}
 .appver{font-family:var(--mono);font-size:11px;color:var(--ink-soft);text-align:center;margin:16px 0 8px;opacity:.75}
+.appver-actions{text-align:center;margin:2px 0 14px}
 .kvbar{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0}
 .kvbar .k{font-family:var(--mono);font-size:11px;background:var(--foam);border:1px solid var(--line);border-radius:9px;padding:6px 10px;color:var(--ink-soft);box-shadow:var(--sh-sm)}
 .kvbar .k b{color:var(--ink)}
@@ -689,7 +690,7 @@ function renderVandaag(){
 
   /* ---- cinematische cover ---- */
   const hero=el('div','hero');
-  hero.innerHTML='<img src="img/ai/cover.jpg" alt="Australië oostkust">'+
+  hero.innerHTML='<img src="img/ai/cover.png" alt="Australië oostkust">'+
     '<div class="cover-glow"></div>'+
     '<div class="cap">'+
     '<p class="eyebrow">Sydney → Cairns · '+DATA.meta.dagen+' dagen</p>'+
@@ -1088,7 +1089,7 @@ function divePanel(dv){
 /* ---------- DUIKEN ---------- */
 function renderDuiken(){
   const v=views.duiken;v.innerHTML='';
-  v.appendChild(el('img','banner',null)).src='img/ai/duiken.jpg';
+  v.appendChild(el('img','banner',null)).src='img/ai/duiken.png';
   const w=el('div','pad');
   w.innerHTML='<h2 class="h2"><span class="num">🤿</span>Duiken & snorkelen</h2>'+
     '<p class="sub">Drie duikkansen langs de route, opbouwend van de zachtste start naar de mooiste finale. Het hele gezin gaat mee.</p>';
@@ -1122,7 +1123,7 @@ function accordion(ic,title,sub,contentNode,opts){
 
 /* ---------- PRAKTISCH ---------- */
 function renderPraktisch(){
-  const APP_VERSION='v22'; // bump samen met sw.js CACHE bij elke deploy
+  const APP_VERSION='v27'; // bump samen met sw.js CACHE bij elke deploy
   const v=views.praktisch;v.innerHTML='';
   const head=el('div','pad');
   head.innerHTML='<h2 class="h2"><span class="num">🧳</span>Praktisch</h2><p class="sub">Weer & inpakken, veilig rijden en al je reisgegevens — tik een kaart open.</p>';
@@ -1141,7 +1142,7 @@ function renderPraktisch(){
   {
     const c=el('div');
     c.appendChild(el('p','sub',esc(DATA.packing.intro)));
-    c.appendChild(el('img','banner',null)).src='img/ai/inpakken.jpg';
+    c.appendChild(el('img','banner',null)).src='img/ai/inpakken.png';
     DATA.packing.groepen.forEach(g=>{
       const d=el('div','pk');d.innerHTML='<h4>'+esc(g.titel)+'</h4>';
       const ul=el('ul');g.items.forEach(it=>ul.appendChild(el('li',null,esc(it))));
@@ -1207,7 +1208,15 @@ function renderPraktisch(){
   }
 
   v.appendChild(grp);
-  const verf=el('div','pad');verf.innerHTML='<p class="appver">Reisgids-versie <b>'+APP_VERSION+'</b></p>';v.appendChild(verf);
+  const verf=el('div','pad');verf.innerHTML='<p class="appver">Reisgids-versie <b>'+APP_VERSION+'</b></p>';
+  const hrw=el('div','appver-actions');
+  const hr=el('button','btn ghost sm','↻ Nieuwste versie — wis cache');hr.type='button';
+  hr.onclick=function(){
+    if(!confirm('Alle offline cache wissen en de nieuwste versie ophalen? Let op: je offline kaarten (±70 MB) worden ook gewist en moeten later via wifi opnieuw geladen worden.'))return;
+    hr.textContent='Bezig met wissen…';hr.disabled=true;
+    Promise.resolve().then(function(){return window.caches?caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k);}));}):null;}).then(function(){return navigator.serviceWorker?navigator.serviceWorker.getRegistrations():[];}).then(function(regs){return Promise.all((regs||[]).map(function(r){return r.unregister();}));}).catch(function(){}).then(function(){location.replace(location.pathname+'?fresh='+Date.now());});
+  };
+  hrw.appendChild(hr);verf.appendChild(hrw);v.appendChild(verf);
 
   v.querySelectorAll('[data-go-dag]').forEach(a=>a.onclick=e=>{e.preventDefault();go('dagen',+a.dataset.goDag);});
 }
