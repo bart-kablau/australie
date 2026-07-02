@@ -830,7 +830,7 @@ function buildRibbon(mini,activeDay,withDays){
   segs.forEach(sg=>{
     const s=DATA.stops[sg.k];
     const nights=sg.days.length;
-    const dive=(sg.k==='reef'||sg.k==='palmcove');
+    const dive=sg.days.some(dn=>DATA.days[dn-1]&&DATA.days[dn-1].diveKey);
     const f=sg.days[0],l=sg.days[sg.days.length-1];
     const cls=(cur!=null&&sg.days.includes(cur))?'now':((cur!=null&&l<cur)?'past':'');
     const date=shortDate(DATA.days[f-1].datum);
